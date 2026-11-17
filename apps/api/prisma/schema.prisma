@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  TEACHER
+  PARENT
+  SECRETARY
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  SUSPENDED
+}
+
+enum FeeStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum BillingCycle {
+  MONTHLY
+  TERM
+  ANNUAL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  role         Role
+  fullName     String
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String
+  subjects     String? 
+  createdAt    DateTime @default(now())
+  
+  classesTeaching ClassLevel[] @relation("ClassTeacher")
+  progressRecords ProgressRecord[] @relation("TeacherRecords")
+  children        Student[]        @relation("ParentChildren")
+  paymentsLogged  Payment[]        @relation("RecordedBy")
+  auditLogs       AuditLog[]
+  staffRecommendations StaffRecommendation[]
+  
+  @@index([role])
+}
+
+model Student {
+  id             String        @id @default(uuid())
+  studentCode    String        @unique
+  firstName      String
+  lastName       String
+  age            Int
+  parentId       String?
+  parent         User?         @relation("ParentChildren", fields: [parentId], references: [id])
+  enrollmentDate DateTime      @default(now())
+  status         StudentStatus @default(ACTIVE)
+
+  classLevelId   String?
+  classLevel     ClassLevel?   @relation(fields: [classLevelId], references: [id])
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  progressRecords ProgressRecord[]
+  fees            StudentFee[]
+  attendance      Attendance[]
+
+  @@index([studentCode])
+  @@index([parentId])
+  @@index([classLevelId])
+  @@index([academicYearId])
+}
+
+model ProgressRecord {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        User     @relation("TeacherRecords", fields: [teacherId], references: [id])
+  date           DateTime @default(now())
+  rating         Int
+  notes          String
+  recommendation String?
+  showToParent   Boolean  @default(true) // <-- ADD THIS LINE
+
+  @@index([studentId, date])
+}
+model StudentFee {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  name           String       // <-- Added this (e.g. "Tuition")
+  totalAmount    Decimal      @db.Decimal(10, 2)
+  dueDate        DateTime
+  status         FeeStatus    @default(UNPAID)
+
+  payments Payment[]
+
+  @@index([studentId, status])
+}
+
+model Payment {
+  id           String     @id @default(uuid())
+  studentFeeId String
+  studentFee   StudentFee @relation(fields: [studentFeeId], references: [id], onDelete: Cascade)
+  amountPaid   Decimal    @db.Decimal(10, 2)
+  paymentDate  DateTime   @default(now())
+  recordedById String
+  recordedBy   User       @relation("RecordedBy", fields: [recordedById], references: [id])
+
+  @@index([studentFeeId])
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime
+  present   Boolean
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+}
+
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  timestamp DateTime @default(now())
+
+  @@index([userId, timestamp])
+}
+
+model AcademicYear {
+  id        String    @id @default(uuid())
+  label     String    @unique
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean   @default(false)
+
+  students  Student[]
+}
+
+model ClassLevel {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  sortOrder Int
+
+  teacherId String?   // <--- MUST BE HERE
+  teacher   User?     @relation("ClassTeacher", fields: [teacherId], references: [id]) // <--- MUST BE HERE
+
+  students  Student[]
+}
+
+model StaffRecommendation {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id])
+  message   String
+  status    String   @default("PENDING") // "PENDING" or "RESOLVED"
+  createdAt DateTime @default(now())
+
+  @@index([teacherId])
+}

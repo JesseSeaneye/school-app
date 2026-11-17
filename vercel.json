@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "installCommand": "pnpm install",
+  "builds": [
+    {
+      "src": "apps/api/src/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "apps/api/prisma/schema.prisma",
+          "node_modules/.prisma/client/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/api/src/index.ts"
+    }
+  ]
+}

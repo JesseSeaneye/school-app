@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment variables
+.env
+.env.local
+
+# Build outputs
+dist/
+build/
+.expo/
+
+# Vercel & Netlify
+.vercel
+.netlify
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
